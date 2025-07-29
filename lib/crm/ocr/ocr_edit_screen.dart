@@ -1,9 +1,11 @@
-// ignore_for_file: avoid_print, unused_element
+// ignore_for_file: avoid_print, unused_element, use_build_context_synchronously
 
-import 'dart:io';
+import 'dart:convert'; // BASE64 için gerekli
+import 'dart:io'; // File için gerekli
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../../canias_service.dart';
+import '../crm_screen.dart'; // CRM ekranına yönlendirme için gerekli
 
 class OCREditScreen extends StatefulWidget {
   final List<File> images;
@@ -34,7 +36,6 @@ class _OCREditScreenState extends State<OCREditScreen> {
   late TextEditingController _typeAction;
   late TextEditingController _typeMaterial;
   late TextEditingController _notes;
-  late TextEditingController _photo;
 
   bool _loading = false;
 
@@ -53,7 +54,6 @@ class _OCREditScreenState extends State<OCREditScreen> {
     _typeAction = TextEditingController();
     _typeMaterial = TextEditingController();
     _notes = TextEditingController();
-    _photo = TextEditingController();
   }
 
   String _generate32CharId() {
@@ -65,7 +65,12 @@ class _OCREditScreenState extends State<OCREditScreen> {
 
     final generatedId = _generate32CharId();
 
-    print('📌 createName olarak gönderiliyor: ${widget.userName}');
+    final firstImage = widget.images[0];
+    final bytes = await firstImage.readAsBytes();
+    final photoBase64String = base64Encode(bytes);
+    final fileName = 'IMG_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+    setState(() => _loading = true);
 
     final ok = await CaniasService.insertCrm(
       id: generatedId,
@@ -81,8 +86,9 @@ class _OCREditScreenState extends State<OCREditScreen> {
       typeAction: _typeAction.text,
       typeMaterial: _typeMaterial.text,
       notes: _notes.text,
-      photo: _photo.text,
+      photoBase64: photoBase64String,
       createName: widget.userName,
+      fileName: fileName,
     );
 
     setState(() => _loading = false);
@@ -91,12 +97,26 @@ class _OCREditScreenState extends State<OCREditScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('✅ Kayıt başarılı!')),
       );
-      Navigator.pop(context, true);
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CrmScreen(userName: widget.userName),
+        ),
+        (route) => false,
+      );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Kayıt başarılı!')),
       );
-      Navigator.pop(context, true);
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CrmScreen(userName: widget.userName),
+        ),
+        (route) => false,
+      );
     }
   }
 
@@ -125,7 +145,7 @@ class _OCREditScreenState extends State<OCREditScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = const Color(0xFF0055A5);
+    const themeColor = Color(0xFF0055A5);
     return Scaffold(
       appBar: AppBar(
         backgroundColor: themeColor,
@@ -188,8 +208,6 @@ class _OCREditScreenState extends State<OCREditScreen> {
                     _buildField(_typeMaterial, 'TYPEMATERIAL'),
                     const SizedBox(height: 12),
                     _buildField(_notes, 'NOTES'),
-                    const SizedBox(height: 12),
-                    _buildField(_photo, 'PHOTO'),
                     const SizedBox(height: 20),
                     ElevatedButton(
                       onPressed: _insertAndReturn,

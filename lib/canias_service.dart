@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart' as xml;
 import 'dart:developer';
@@ -174,12 +176,10 @@ class CaniasService {
     required String typeAction,
     required String typeMaterial,
     required String notes,
-    required String photo,
+    String? photoBase64, // opsiyonel oldu // opsiyonel oldu
     required String createName,
+    String? fileName,
   }) async {
-    // 👇 Loglayalım ne gönderiyoruz:
-    log('📌 Gönderilen createName: $createName');
-
     final insertRequest = '''<?xml version="1.0" encoding="utf-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:web="http://webservice.ias.com">
   <soapenv:Header/>
@@ -203,8 +203,9 @@ class CaniasService {
           <PARAM>$typeAction</PARAM>
           <PARAM>$typeMaterial</PARAM>
           <PARAM>$notes</PARAM>
-          <PARAM>$photo</PARAM>
+          <PARAM>${photoBase64 ?? ''}</PARAM>
           <PARAM>$createName</PARAM>
+          <PARAM>${fileName ?? ''}</PARAM>
         </PARAMETERS>
       ]]></Parameters>
       <Compressed>0</Compressed>
@@ -216,7 +217,6 @@ class CaniasService {
 </soapenv:Envelope>''';
 
     try {
-      log('🚀 Insert isteği gönderiliyor...');
       final response = await http.post(
         Uri.parse(_url),
         headers: {
@@ -226,24 +226,20 @@ class CaniasService {
         body: insertRequest,
       );
 
-      log('📡 Sunucudan cevap alındı. Status Code: ${response.statusCode}');
-      log('🔎 Dönen XML: ${response.body}');
-
       if (response.statusCode == 200) {
         if (response.body.contains('<SYSStatus>0</SYSStatus>')) {
-          log('✅ [insertCrm] Sunucu başarılı cevap verdi!');
+          log('✅ [insertCrm] Kayıt başarılı.');
           return true;
         } else {
-          log('⚠️ [insertCrm] Sunucu 200 döndü ama SYSStatus 0 değil.');
+          log('⚠️ [insertCrm] SYSStatus != 0');
           return false;
         }
       } else {
-        log('❌ [insertCrm] Sunucu hatası! HTTP Status: ${response.statusCode}');
+        log('❌ [insertCrm] HTTP hatası: ${response.statusCode}');
         return false;
       }
-    } catch (e, st) {
-      log('🔥 [insertCrm] İstek gönderilirken hata oluştu: $e');
-      log('📌 StackTrace: $st');
+    } catch (e) {
+      log('🔥 [insertCrm] Hata: $e');
       return false;
     }
   }

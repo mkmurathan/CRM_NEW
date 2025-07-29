@@ -1,5 +1,7 @@
-// ignore_for_file: deprecated_member_use
+// OCRScreen.dart
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -16,17 +18,11 @@ class OCRScreen extends StatefulWidget {
 }
 
 class _OCRScreenState extends State<OCRScreen> {
-  final List<File> _images = [];
+  File? _selectedImage;
   bool _isLoading = false;
   final OCRHelper _ocrHelper = OCRHelper();
 
   Future<void> _pick(ImageSource src) async {
-    if (_images.length >= 2) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('En fazla iki fotoğraf.')));
-      return;
-    }
-
     final perm = src == ImageSource.camera
         ? await Permission.camera.request()
         : await Permission.photos.request();
@@ -40,12 +36,8 @@ class _OCRScreenState extends State<OCRScreen> {
     final picked = await ImagePicker()
         .pickImage(source: src, imageQuality: 85, maxWidth: 1600);
     if (picked != null) {
-      setState(() => _images.add(File(picked.path)));
+      setState(() => _selectedImage = File(picked.path));
     }
-  }
-
-  void _remove(int i) {
-    setState(() => _images.removeAt(i));
   }
 
   void _showFull(File f) {
@@ -62,21 +54,32 @@ class _OCRScreenState extends State<OCRScreen> {
   }
 
   Future<void> _scan() async {
-    if (_images.isEmpty) {
+    if (_selectedImage == null) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Fotoğraf seçin.')));
       return;
     }
+
     setState(() => _isLoading = true);
-    final data = await _ocrHelper.extractTextFromImages(_images);
+
+    final data = await _ocrHelper.extractTextFromImages([_selectedImage!]);
+
+    // Fotoğrafı base64 olarak al
+    final base64Photo = base64Encode(await _selectedImage!.readAsBytes());
+    final filename = "IMG_${DateTime.now().millisecondsSinceEpoch}.jpg";
+
+    debugPrint('📸 Fotoğraf dosya adı: $filename');
+    debugPrint('📦 Base64 uzunluğu: ${base64Photo.length} karakter');
+
     setState(() => _isLoading = false);
 
     if (!mounted) return;
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => OCREditScreen(
-          images: _images,
+          images: [_selectedImage!], // 👈 Sadece ilk foto gönderiliyor
           ocrData: data,
           userName: widget.userName,
         ),
@@ -86,7 +89,7 @@ class _OCRScreenState extends State<OCRScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = const Color(0xFF0055A5);
+    const theme = Color(0xFF0055A5);
     return Scaffold(
       appBar: AppBar(
         backgroundColor: theme,
@@ -102,45 +105,19 @@ class _OCRScreenState extends State<OCRScreen> {
                 child: Column(
                   children: [
                     Expanded(
-                      child: _images.isEmpty
+                      child: _selectedImage == null
                           ? const Center(child: Text('Henüz fotoğraf yok'))
-                          : ListView.builder(
-                              itemCount: _images.length,
-                              itemBuilder: (ctx, i) {
-                                final img = _images[i];
-                                return Stack(
-                                  children: [
-                                    GestureDetector(
-                                      onTap: () => _showFull(img),
-                                      child: Container(
-                                        margin:
-                                            const EdgeInsets.only(bottom: 12),
-                                        child: ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          child: Image.file(img,
-                                              height: 180,
-                                              width: double.infinity,
-                                              fit: BoxFit.cover),
-                                        ),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      right: 8,
-                                      top: 8,
-                                      child: CircleAvatar(
-                                        backgroundColor:
-                                            Colors.black.withOpacity(0.6),
-                                        child: IconButton(
-                                          icon: const Icon(Icons.close,
-                                              color: Colors.white),
-                                          onPressed: () => _remove(i),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
+                          : GestureDetector(
+                              onTap: () => _showFull(_selectedImage!),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.file(
+                                  _selectedImage!,
+                                  height: 180,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
                             ),
                     ),
                     const SizedBox(height: 12),

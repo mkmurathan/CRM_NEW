@@ -1,5 +1,7 @@
-// ignore_for_file: unused_local_variable, avoid_print
+// ignore_for_file: unused_local_variable, avoid_print, prefer_const_constructors, use_build_context_synchronously
 
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../canias_service.dart';
@@ -39,7 +41,23 @@ class _InsertPageState extends State<InsertPage> {
 
     final generatedId = _generate32CharId();
 
-    print('📌 Gönderilen createName: ${widget.userName}');
+    String? photoBase64String;
+    String? fileName;
+
+    if (_photo.text.trim().isNotEmpty) {
+      final file = File(_photo.text.trim());
+      if (file.existsSync()) {
+        final bytes = await file.readAsBytes();
+        photoBase64String = base64Encode(bytes);
+        fileName = file.uri.pathSegments.last;
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content:
+                  Text('📷 Fotoğraf bulunamadı, fotoğrafsız devam ediliyor.')),
+        );
+      }
+    }
 
     final ok = await CaniasService.insertCrm(
       id: generatedId,
@@ -55,8 +73,9 @@ class _InsertPageState extends State<InsertPage> {
       typeAction: _typeAction.text,
       typeMaterial: _typeMaterial.text,
       notes: _notes.text,
-      photo: _photo.text,
-      createName: widget.userName, // ✅ kullanıcı adı buradan
+      photoBase64: photoBase64String ?? '',
+      createName: widget.userName,
+      fileName: fileName ?? '',
     );
 
     setState(() => _loading = false);
@@ -119,7 +138,7 @@ class _InsertPageState extends State<InsertPage> {
               _buildTextField(_notes, 'NOTES', maxLines: 3),
               const SizedBox(height: 12),
               _buildTextField(_photo, 'PHOTO',
-                  hint: 'JPEG_20250327_100724_xxx.jpg'),
+                  hint: 'Dosya yolu: /storage/emulated/0/DCIM/xyz.jpg'),
               const SizedBox(height: 20),
               _loading
                   ? const CircularProgressIndicator()

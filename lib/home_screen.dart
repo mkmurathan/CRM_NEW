@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously, unused_local_variable
+
 import 'package:flutter/material.dart';
 import 'crm/crm_screen.dart';
 import 'login_screen.dart';
